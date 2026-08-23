@@ -1,0 +1,11 @@
+services:
+  gate:
+    image: nginx:alpine
+    container_name: hortusfox-gate
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+      - "192.168.50.241:8124:80"
+    volumes:
+      - ../site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

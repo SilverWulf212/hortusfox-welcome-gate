@@ -1,0 +1,20 @@
+# plants.silverwulf.org — welcome gate in front of HortusFox.
+# Serves the static overlay at exactly / (and /index.html); every other path
+# falls through to the app router in hortusfox.yml untouched.
+# Rollback: `docker compose down` in /opt/hortusfox-gate, then delete this file.
+http:
+  routers:
+    hortusfox-gate:
+      rule: "Host(`plants.silverwulf.org`) && (Path(`/`) || Path(`/index.html`) || Path(`/plants.local.js`) || PathPrefix(`/assets`))"
+      entryPoints: [ websecure ]
+      priority: 300
+      service: hortusfox-gate
+      middlewares: [ crowdsec, secure-headers ]
+      tls:
+        certResolver: cloudflare
+
+  services:
+    hortusfox-gate:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.50.241:8124"

@@ -1,0 +1,7 @@
+site/plants.local.js
+site/assets/photos/
+backups/
+local-bake/
+node_modules/
+test-results/
+playwright-report/

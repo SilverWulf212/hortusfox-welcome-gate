@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Garden</title>
+<meta name="description" content="A quiet place for growing things.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234a4d44'/%3E%3Cpath d='M16 26V14' stroke='%23eef1e7' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M16 17c0-4 2.8-6.6 6.6-6.4.4 4-2.6 6.9-6.6 6.4Z' fill='%23c9d8a5'/%3E%3Cpath d='M16 19c-.2-3.4-2.6-5.6-5.8-5.6-.2 3.4 2.2 5.7 5.8 5.6Z' fill='%23eef1e7'/%3E%3C/svg%3E">
+<script>document.documentElement.className += " js";</script>
+<style>
+  :root{
+    --ink:#f2f3ef; --ink-soft:rgba(242,243,239,.66); --ink-faint:rgba(242,243,239,.42);
+    --rule:rgba(255,255,255,.06); --card:#f2f3ef; --card-ink:#23261f;
+    --moss:#c9d8a5; --moss-deep:#8fae62; --vine:rgba(238,243,231,.30);
+    --ease:cubic-bezier(.22,.61,.36,1); --ease-out:cubic-bezier(.16,1,.3,1);
+  }
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  html{ background:#383b34; scroll-behavior:smooth; }
+  body{
+    font-family:'Lexend','Avenir Next','Segoe UI',system-ui,-apple-system,sans-serif;
+    font-weight:300; color:var(--ink); background:#383b34;
+    min-height:100svh; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+  }
+
+  .hero{
+    position:relative; width:100%; min-height:100svh; overflow:hidden; isolation:isolate;
+    background:
+      radial-gradient(64% 52% at 27% 84%, rgba(232,238,222,.085) 0%, rgba(232,238,222,0) 72%),
+      radial-gradient(70% 60% at 92% 8%,  rgba(24,28,20,.10) 0%, rgba(24,28,20,0) 68%),
+      #4a4d44;
+  }
+  .hero::after{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(72% 44% at 50% 117%, rgba(238,243,231,.40) 0%, rgba(238,243,231,.17) 42%, rgba(238,243,231,.04) 72%, rgba(238,243,231,0) 88%),
+      linear-gradient(180deg, rgba(238,243,231,0) 54%, rgba(238,243,231,.05) 100%);
+  }
+
+  #pollen{ position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.85; }
+  .guides{ position:absolute; inset:0; z-index:1; pointer-events:none; }
+  .guides i{ position:absolute; top:0; bottom:0; width:1px;
+    background:linear-gradient(180deg, transparent 0%, var(--rule) 12%, var(--rule) 78%, transparent 100%); }
+  .guides i:nth-child(1){ left:25%; } .guides i:nth-child(2){ left:50%; } .guides i:nth-child(3){ left:75%; }
+
+  .ghost{
+    position:absolute; z-index:1; left:-.02em; bottom:-.21em;
+    font-size:min(23vw,320px); line-height:.8; font-weight:400; letter-spacing:.08em;
+    color:rgba(255,255,255,.05); white-space:nowrap; user-select:none; pointer-events:none;
+  }
+
+  /* ── native vines ──────────────────────────────────────────────────── */
+  .vine{ position:absolute; z-index:2; pointer-events:none; color:var(--vine); }
+  .vine svg{ display:block; width:100%; height:auto; overflow:visible; }
+  .vine .bloom{ fill:none; stroke:var(--moss); opacity:.75; }
+  .vine--tl{ top:-6px; left:min(3vw,48px); width:clamp(150px,19vw,300px); transform-origin:top center; }
+  .vine--br{ bottom:-10px; right:min(2vw,32px); width:clamp(170px,21vw,330px); transform:scaleX(-1); transform-origin:top center; }
+  @keyframes sway{ 0%,100%{ rotate:-1.1deg; } 50%{ rotate:1.3deg; } }
+  .vine--tl svg,.vine--br svg{ animation:sway 9s ease-in-out infinite; }
+  .vine--br svg{ animation-duration:11s; animation-delay:-3s; }
+
+  /* ── dock ──────────────────────────────────────────────────────────── */
+  .dock-wrap{
+    position:absolute; z-index:6; top:clamp(16px,4vh,38px); left:0; right:0;
+    display:flex; justify-content:center; pointer-events:none;
+  }
+  .dock{
+    pointer-events:auto; display:flex; align-items:center; gap:3px;
+    height:46px; padding:5px; border-radius:14px;
+    border:1px solid rgba(255,255,255,.11);
+    background:linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,0) 42%), rgba(34,40,31,.74);
+    box-shadow:0 8px 22px rgba(10,14,8,.30), inset 0 1px rgba(255,255,255,.06);
+  }
+  .dock a{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    height:36px; padding:0 13px; border:1px solid transparent; border-radius:10px;
+    background:rgba(255,255,255,.04); color:var(--ink-faint); text-decoration:none;
+    font-size:11px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; white-space:nowrap;
+    transition:color .18s var(--ease), border-color .2s var(--ease), background .2s var(--ease), transform .25s var(--ease-out);
+  }
+  .dock a:hover{ color:var(--ink); border-color:rgba(255,255,255,.19); background:rgba(31,37,28,.94); transform:translateY(-1px); }
+  .dock a:focus-visible{ outline:2px solid rgba(255,255,255,.85); outline-offset:2px; }
+  .dock svg{ width:15px; height:15px; flex:none; fill:none; stroke:currentColor; stroke-width:1.25; stroke-linecap:round; stroke-linejoin:round; }
+  .dock-mark{ width:36px; padding:0; background:#eef1e7; border-color:#eef1e7; overflow:hidden; }
+  .dock-mark:hover{ background:#fff; }
+  @media (max-width:700px){ .dock a span:not(.glyph){ display:none; } .dock a{ width:40px; padding:0; } }
+
+  /* ── copy ──────────────────────────────────────────────────────────── */
+  .copy{ position:relative; z-index:4; max-width:1200px; margin:0 auto;
+    padding:clamp(96px,19vh,180px) clamp(24px,5vw,56px) 0; }
+  .headline{ font-size:clamp(38px,5.2vw,63px); line-height:1.04; letter-spacing:-.01em; font-weight:300; }
+  .headline span{ display:block; padding-bottom:.04em; }
+  .lede{ margin-top:clamp(18px,3.5vh,34px); margin-left:min(30vw,480px);
+    max-width:250px; font-size:clamp(14px,1.3vw,16.5px); line-height:1.45; color:var(--ink-soft); }
+  @media (max-width:900px){ .lede{ margin-left:0; max-width:430px; } }
+
+  .stats{ display:flex; flex-wrap:wrap; gap:clamp(24px,5vw,80px); margin-top:clamp(24px,5vh,46px); }
+  .stat{ display:flex; align-items:flex-start; gap:10px; }
+  .stat .mark{ width:30px; height:30px; flex:none; margin-top:2px; color:rgba(255,255,255,.34); }
+  .stat .mark svg{ width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:1.2; stroke-linecap:round; }
+  .stat dt{ font-size:13px; color:var(--ink-soft); line-height:1.35; }
+  .stat dd{ font-size:14px; font-weight:600; line-height:1.5; }
+
+  /* ── CTA: liquid sheen + pointer-lit face + press ripple ───────────── */
+  .cta-row{ margin-top:clamp(26px,5vh,50px); display:flex; align-items:center; gap:26px; flex-wrap:wrap; }
+  .cta{
+    --mx:50%; --my:50%;
+    position:relative; display:inline-flex; align-items:center; gap:14px;
+    padding:17px 30px; border-radius:999px; border:1px solid rgba(255,255,255,.14);
+    background:
+      radial-gradient(120% 140% at var(--mx) var(--my), rgba(201,216,165,.13), rgba(201,216,165,0) 52%),
+      linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.015) 48%),
+      rgba(20,25,17,.55);
+    box-shadow:0 12px 30px rgba(10,14,8,.35), inset 0 1px rgba(255,255,255,.12);
+    color:var(--ink); text-decoration:none; font-size:14px; font-weight:500; letter-spacing:.4px;
+    overflow:hidden; transition:transform .35s var(--ease-out), box-shadow .35s var(--ease), border-color .3s;
+  }
+  .cta::before{
+    content:''; position:absolute; top:0; bottom:0; width:44%; left:-30%;
+    background:linear-gradient(100deg,transparent,rgba(240,246,220,.15) 40%,rgba(252,255,246,.32) 52%,transparent);
+    transform:skewX(-14deg); animation:sheen 4.8s var(--ease) infinite;
+  }
+  @keyframes sheen{ 0%,55%{ left:-30%; } 82%,100%{ left:122%; } }
+  .cta::after{
+    content:''; position:absolute; inset:-1px; border-radius:inherit; border:1px solid rgba(201,216,165,.55);
+    opacity:0; transition:opacity .5s var(--ease), transform .6s var(--ease-out); transform:scale(.94);
+  }
+  .cta:hover{ transform:translateY(-2px); border-color:rgba(201,216,165,.4);
+    box-shadow:0 18px 42px rgba(10,14,8,.45), inset 0 1px rgba(255,255,255,.16); }
+  .cta:hover::after{ opacity:.7; transform:scale(1.02); }
+  .cta:active::after{ opacity:1; transform:scale(1.08); transition:transform .18s var(--ease-out), opacity .18s; }
+  .cta:focus-visible{ outline:2px solid rgba(255,255,255,.85); outline-offset:3px; }
+  .cta svg{ width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; transition:transform .3s var(--ease-out); }
+  .cta:hover svg{ transform:translateX(4px); }
+  .hint{ font-size:12px; letter-spacing:2.4px; text-transform:uppercase; color:var(--ink-faint); }
+
+  /* ── specimen strip: her real plants, drawn as line art ────────────── */
+  .strip-wrap{ position:relative; z-index:4; max-width:1200px; margin:clamp(36px,7vh,72px) auto 0;
+    padding:0 clamp(24px,5vw,56px) clamp(56px,9vh,96px); }
+  .strip-label{ font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:16px; }
+  .strip{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(150px,1fr); gap:12px;
+    overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; scrollbar-width:none; }
+  .strip::-webkit-scrollbar{ display:none; }
+  .specimen{
+    scroll-snap-align:start; position:relative; text-decoration:none;
+    aspect-ratio:3/4; border-radius:20px; padding:16px 14px 14px;
+    display:flex; flex-direction:column;
+    background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.015) 55%), rgba(28,33,25,.55);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 10px 26px rgba(10,14,8,.25), inset 0 1px rgba(255,255,255,.08);
+    transition:transform .4s var(--ease-out), border-color .3s, box-shadow .4s var(--ease);
+  }
+  .specimen:hover{ transform:translateY(-4px); border-color:rgba(201,216,165,.38);
+    box-shadow:0 18px 38px rgba(10,14,8,.38), inset 0 1px rgba(255,255,255,.12); }
+  .specimen:focus-visible{ outline:2px solid rgba(255,255,255,.85); outline-offset:2px; }
+  .specimen .art{ flex:1; display:flex; align-items:center; justify-content:center; color:rgba(240,244,228,.8); min-height:0;
+    position:relative; border-radius:12px; overflow:hidden; background:rgba(10,14,8,.25); }
+  .specimen .art svg{ width:74%; max-height:100%; fill:none; stroke:currentColor;
+    stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+  .specimen .art img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;
+    filter:saturate(.94) contrast(1.02); transition:transform 1.1s var(--ease-out); }
+  .specimen:hover .art img{ transform:scale(1.06); }
+  .specimen .art::after{ content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(20,25,17,0) 55%, rgba(20,25,17,.38));
+    pointer-events:none; }
+  .specimen .nm{ font-size:12.5px; font-weight:500; line-height:1.3; color:var(--ink); margin-top:10px; }
+  .specimen .loc{ font-size:10.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-faint); margin-top:3px; }
+  @media (max-width:700px){
+    .strip{ grid-auto-columns:44%; }
+  }
+
+  /* ── pointer-depth: the world leans toward your cursor ─────────────── */
+  [data-depth]{
+    transform:translate3d(calc(var(--nx,0) * var(--dp,0) * -1px),
+                          calc(var(--ny,0) * var(--dp,0) * -0.6px), 0);
+    will-change:transform;
+  }
+  .vine--br[data-depth]{ transform:translate3d(calc(var(--nx,0) * var(--dp,0) * -1px),
+                                               calc(var(--ny,0) * var(--dp,0) * -0.6px), 0) scaleX(-1); }
+  #pollen[data-depth]{ transform:translate3d(calc(var(--nx,0) * var(--dp,0) * -1px),
+                                             calc(var(--ny,0) * var(--dp,0) * -0.6px), 0) scale(1.03); }
+
+  /* ── entrance ──────────────────────────────────────────────────────── */
+  .js .rise{ opacity:0; transform:translateY(14px); }
+  .is-ready .rise{ opacity:1; transform:none;
+    transition:opacity .9s var(--ease) var(--d,0ms), transform 1.15s var(--ease-out) var(--d,0ms); }
+  .js .fade-in{ opacity:0; }
+  .is-ready .fade-in{ opacity:1; transition:opacity 1.2s var(--ease) var(--d,0ms); }
+
+  #veil{ position:fixed; inset:0; z-index:60; pointer-events:none;
+    background:radial-gradient(80% 70% at 50% 100%, #edf2e2, #dde5cf);
+    opacity:0; transition:opacity .45s var(--ease); }
+  body.leaving #veil{ opacity:1; }
+
+  @media (prefers-reduced-motion:reduce){
+    .js .rise,.js .fade-in{ opacity:1 !important; transform:none !important; transition:none !important; }
+    .cta::before{ animation:none; display:none; }
+    #pollen{ display:none; }
+    .vine svg{ animation:none !important; }
+    [data-depth]{ transform:none !important; }
+    html{ scroll-behavior:auto; }
+  }
+</style>
+</head>
+<body>
+
+<main class="hero" id="hero">
+  <canvas id="pollen" data-depth="6" aria-hidden="true"></canvas>
+
+  <div class="guides fade-in" data-depth="4" style="--d:900ms" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="ghost fade-in" data-depth="10" style="--d:1100ms" aria-hidden="true">HORTUS</div>
+
+  <!-- coral honeysuckle (Lonicera sempervirens) — native, trailing from the top -->
+  <span class="vine vine--tl fade-in" data-depth="14" style="--d:1250ms" aria-hidden="true">
+    <svg viewBox="0 0 200 260">
+      <path d="M28 -6 C 20 44, 44 70, 34 116 C 26 152, 52 176, 44 214" />
+      <path d="M31 40 C 58 34, 74 46, 88 64" /><path d="M88 64 c 10 -3 16 3 14 12 c -9 3 -16 -3 -14 -12 Z"/>
+      <path d="M36 132 C 62 128, 76 138, 90 154" /><path d="M90 154 c 10 -3 16 3 14 12 c -9 3 -16 -3 -14 -12 Z"/>
+      <path d="M30 84 c -18 -8 -30 -4 -38 6 M44 178 c 16 -6 30 -2 38 8" />
+      <path class="bloom" d="M118 76 c -16 -10 -34 -6 -40 8 c -4 10 2 20 12 24 l -4 14 l 10 -10 c 16 2 28 -8 28 -22 c 0 -6 -2 -10 -6 -14 Z"/>
+      <path class="bloom" d="M124 168 c -16 -10 -34 -6 -40 8 c -4 10 2 20 12 24 l -4 14 l 10 -10 c 16 2 28 -8 28 -22 c 0 -6 -2 -10 -6 -14 Z"/>
+      <path d="M60 210 c 14 10 30 12 44 4" />
+    </svg>
+  </span>
+
+  <!-- crossvine (Bignonia capreolata) — native, climbing out of the light pool -->
+  <span class="vine vine--br fade-in" data-depth="18" style="--d:1350ms" aria-hidden="true">
+    <svg viewBox="0 0 200 280">
+      <path d="M40 286 C 54 240, 34 208, 52 164 C 66 128, 48 96, 62 56 C 68 38, 62 18, 54 -6"/>
+      <path d="M56 96 c -20 2 -30 14 -32 30 M58 190 c 18 -4 32 2 40 16"/>
+      <path d="M50 140 l 14 10 M52 230 l -16 8"/>
+      <path class="bloom" d="M92 130 c -4 -18 8 -32 24 -32 c 14 0 24 10 26 24 l 14 4 l -12 8 c 0 14 -12 24 -26 22 c -12 -2 -22 -12 -26 -26 Z"/>
+      <path class="bloom" d="M96 226 c -4 -18 8 -32 24 -32 c 14 0 24 10 26 24 l 14 4 l -12 8 c 0 14 -12 24 -26 22 c -12 -2 -22 -12 -26 -26 Z"/>
+      <path d="M150 40 c 12 6 18 16 16 30 M148 40 c -2 14 2 24 12 34 M149 40 l 2 34" />
+    </svg>
+  </span>
+
+  <div class="dock-wrap">
+    <nav class="dock fade-in" style="--d:150ms" aria-label="Garden navigation">
+      <a class="dock-mark" href="/" data-enter aria-label="The Garden — home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 27V13" stroke="#23261f" stroke-width="2.6" stroke-linecap="round" fill="none"/><path d="M16 18c0-4.2 3-7 7-6.8.4 4.3-2.8 7.3-7 6.8Z" fill="#23261f" stroke="none"/><path d="M16 20c-.2-3.6-2.8-6-6.2-6-.2 3.7 2.4 6.1 6.2 6Z" fill="#23261f" stroke="none"/></svg>
+      </a>
+      <a href="/plants" data-enter style="--d:200ms">
+        <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14V9"/><path d="M8 9c0-2.4 1.7-4.3 4-4.3.2 2.6-1.6 4.6-4 4.3Z"/><path d="M8 10.5C7.9 8.4 6.4 6.8 4.4 6.8 4.3 8.9 5.9 10.6 8 10.5Z"/></svg>
+        <span>Plants</span>
+      </a>
+      <a href="/tasks" data-enter style="--d:250ms">
+        <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5"/></svg>
+        <span>Tasks</span>
+      </a>
+      <a href="/calendar" data-enter style="--d:300ms">
+        <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="10" rx="1.5"/><path d="M2.5 6.5h11M5.5 2v2.5M10.5 2v2.5"/></svg>
+        <span>Calendar</span>
+      </a>
+    </nav>
+  </div>
+
+  <div class="copy">
+    <h1 class="headline">
+      <span class="rise" style="--d:260ms">Step into</span>
+      <span class="rise" style="--d:380ms">the living garden.</span>
+    </h1>
+
+    <p class="lede rise" style="--d:520ms">Every plant has a name, a place, and a turn for water. This is where we keep all three.</p>
+
+    <dl class="stats">
+      <div class="stat rise" style="--d:700ms">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="10.5" stroke-dasharray="0.6 3.6"/><circle cx="15" cy="15" r="5.6" stroke-dasharray="0.6 3.2"/><circle cx="15" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg></span>
+        <div><dt>Under our care</dt><dd id="st-plants">— plants</dd></div>
+      </div>
+      <div class="stat rise" style="--d:760ms">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 30 30"><path d="M4 24c4-8 7-12 10-12s5 5 8 5c3 0 5-2 8-5"/><path d="M8 14c2-4 4-6 6-6"/></svg></span>
+        <div><dt>Growing spaces</dt><dd id="st-beds">— beds &amp; rooms</dd></div>
+      </div>
+      <div class="stat rise" style="--d:820ms">
+        <span class="mark" aria-hidden="true"><svg viewBox="0 0 30 30"><g><path d="M15 3.5v5"/><path d="M15 21.5v5"/><path d="M3.5 15h5"/><path d="M21.5 15h5"/></g><circle cx="15" cy="15" r="3.6"/></svg></span>
+        <div><dt>This week</dt><dd id="st-tasks">— open tasks</dd></div>
+      </div>
+    </dl>
+
+    <div class="cta-row rise" style="--d:900ms">
+      <a class="cta" href="/auth?redirect=%2Findex.php" data-enter id="cta">
+        Enter the garden
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
+      </a>
+      <span class="hint">The Garden</span>
+    </div>
+  </div>
+
+  <div class="strip-wrap rise" style="--d:1050ms">
+    <p class="strip-label">Recently planted — from her garden</p>
+    <nav class="strip" id="strip" aria-label="Featured plants"></nav>
+  </div>
+
+  <div id="veil" aria-hidden="true"></div>
+</main>
+
+<!-- Species line-art. Keys map to GARDEN.species below; add your own. -->
+<script>
+/* Botanical glyphs — original line drawings, one per species group. */
+window.SPECIES = {
+  citrus: '<svg viewBox="0 0 64 64"><circle cx="30" cy="38" r="15"/><path d="M30 23c1-4 4-6 8-6"/><path d="M38 17c6-2 12 0 16 6-6 2-12 0-16-6Z"/><path d="M43 14c-1-4 1-8 5-10 1 4-1 8-5 10Z"/><path d="M22 47l16-18"/></svg>',
+  rose: '<svg viewBox="0 0 64 64"><path d="M32 34c-7 0-11-5-10-11 1-5 5-8 10-7 5-1 9 2 10 7 1 6-3 11-10 11Z"/><path d="M27 22c2-3 8-3 10 0 2 2 1 6-2 7M29 29c-2-1-3-4-2-6"/><path d="M32 34v20"/><path d="M32 44c-5 1-9-1-11-5 5-1 9 1 11 5ZM32 49c5 1 9-1 11-5-5-1-9 1-11 5Z"/></svg>',
+  gardenia: '<svg viewBox="0 0 64 64"><path d="M32 30c-3-6 0-12 6-14 2 6-1 12-6 14Z"/><path d="M32 30c-6-1-9-7-7-13 6 2 9 7 7 13Z"/><path d="M32 30c6-1 9-7 7-13-6 2-9 7-7 13Z" transform="rotate(120 32 34)"/><path d="M32 30c6-1 9-7 7-13-6 2-9 7-7 13Z" transform="rotate(240 32 34)"/><circle cx="32" cy="34" r="3"/><path d="M32 44v10M32 49c-4 1-7-1-9-4 4-1 7 1 9 4Z"/></svg>',
+  hydrangea: '<svg viewBox="0 0 64 64"><g><path d="M22 22a5 5 0 1 1 10 0 5 5 0 1 1-10 0ZM27 17v-3M22 22h-3M32 22h3M27 27v3"/></g><g><path d="M36 34a5 5 0 1 1 10 0 5 5 0 1 1-10 0ZM41 29v-3M36 34h-3M46 34h3M41 39v3"/></g><g><path d="M18 40a5 5 0 1 1 10 0 5 5 0 1 1-10 0Z"/></g><path d="M32 46v10M32 51c-4 1-7-1-9-4"/></svg>',
+  hibiscus: '<svg viewBox="0 0 64 64"><path d="M32 36c-4-2-6-7-4-11l6-9 4 10M32 36c4-2 6-7 4-11L32 14l-2 11"/><path d="M32 36c-5 1-10-2-11-7l-2-7 8 5M32 36c5 1 10-2 11-7l2-7-8 5"/><path d="M32 36v-8"/><circle cx="32" cy="26" r="1.6"/><path d="M32 36v18M32 46c-4 1-7-1-9-4"/></svg>',
+  sundew: '<svg viewBox="0 0 64 64"><path d="M32 56V30"/><path d="M32 30C22 30 16 22 18 12c8-2 16 2 18 12"/><path d="M32 30c10 0 16-8 14-18-8-2-16 2-18 12"/><circle cx="24" cy="16" r="1.2"/><circle cx="30" cy="13" r="1.2"/><circle cx="40" cy="16" r="1.2"/><circle cx="35" cy="12" r="1.2"/><path d="M32 40c-3 0-5-1-7-3"/></svg>',
+  palm: '<svg viewBox="0 0 64 64"><path d="M32 56V26"/><path d="M32 26c-8-2-16 2-20 10 8 2 16-2 20-10ZM32 26c8-2 16 2 20 10-8 2-16-2-20-10ZM32 26c-2-8 2-16 10-20 2 8-2 16-10 20ZM32 26c2-8-2-16-10-20-2 8 2 16 10 20Z"/></svg>',
+  generic: '<svg viewBox="0 0 64 64"><path d="M32 56V24"/><path d="M32 30c0-8 5-13 13-13 0 8-5 13-13 13ZM32 38c0-7-4-11-11-11 0 7 4 11 11 11ZM32 20c0-6 4-10 10-10 0 6-4 10-10 10Z"/></svg>'
+};
+
+/*
+ * GARDEN — the instance's real data lives in plants.local.js next to this
+ * file (NOT in git). Shape:
+ *
+ *   window.GARDEN = {
+ *     stats: { plants: 51, beds: 10, tasks: 11 },
+ *     featured: [
+ *       { name: "Gardenia", loc: "Front street bed", species: "gardenia" },
+ *       { name: "Satsuma",  loc: "Whiskey barrel",   photo: "assets/photos/p1.jpg" },
+ *       ...
+ *     ]
+ *   };
+ *
+ * Each featured entry uses `photo` (a real image) or `species` (line art).
+ * Without plants.local.js the page renders its example placeholders.
+ */
+window.GARDEN = window.GARDEN || {
+  stats: { plants: null, beds: null, tasks: null },
+  featured: [
+    { name: "Gardenia",   loc: "Front bed",    species: "gardenia" },
+    { name: "Roses",      loc: "East trellis", species: "rose" },
+    { name: "Hydrangea",  loc: "Porch pot",    species: "hydrangea" },
+    { name: "Meyer lemon",loc: "Patio",        species: "citrus" },
+    { name: "Hibiscus",   loc: "Cream pot",    species: "hibiscus" },
+    { name: "Sundew",     loc: "Office sill",  species: "sundew" }
+  ]
+};
+</script>
+<script src="plants.local.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Returning visitors skip the splash: Traefik hands us only exactly "/",
+     so /index.php still reaches the real application underneath. */
+  try {
+    if (localStorage.getItem('garden-entered')) { location.replace('/index.php'); return; }
+  } catch (e) {}
+
+  function enter(e) {
+    var a = e.currentTarget;
+    e.preventDefault();
+    try { localStorage.setItem('garden-entered', '1'); } catch (err) {}
+    document.body.classList.add('leaving');
+    setTimeout(function () { location.href = a.getAttribute('href'); }, REDUCED ? 0 : 430);
+  }
+  document.querySelectorAll('[data-enter]').forEach(function (a) {
+    a.addEventListener('click', enter);
+  });
+
+  /* liquid CTA: the lit patch follows the pointer */
+  var cta = document.getElementById('cta');
+  if (cta && !REDUCED) {
+    cta.addEventListener('pointermove', function (e) {
+      var r = cta.getBoundingClientRect();
+      cta.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
+      cta.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%');
+    });
+    cta.addEventListener('pointerleave', function () {
+      cta.style.setProperty('--mx', '50%'); cta.style.setProperty('--my', '50%');
+    });
+  }
+
+  /* pointer-depth: one eased value pair on .hero drives every [data-depth] */
+  var hero = document.getElementById('hero');
+  if (hero && !REDUCED && matchMedia('(hover:hover) and (pointer:fine)').matches) {
+    var tx = 0, ty = 0, cx = 0, cy = 0, raf = null, lastW = '';
+    window.addEventListener('pointermove', function (e) {
+      tx = (e.clientX / innerWidth - .5) * 2;
+      ty = (e.clientY / innerHeight - .5) * 2;
+      if (!raf) raf = requestAnimationFrame(step);
+    }, { passive: true });
+    function step() {
+      raf = null;
+      cx += (tx - cx) * .06; cy += (ty - cy) * .06;
+      var nx = Math.round(cx * 100) / 100, ny = Math.round(cy * 100) / 100;
+      var sig = nx + '|' + ny;
+      if (sig !== lastW) {
+        lastW = sig;
+        hero.style.setProperty('--nx', nx);
+        hero.style.setProperty('--ny', ny);
+      }
+      if (Math.abs(tx - cx) > .001 || Math.abs(ty - cy) > .001) raf = requestAnimationFrame(step);
+    }
+  }
+
+  /* stats + specimen strip */
+  function txt(id, n, suffix) {
+    var el = document.getElementById(id);
+    if (el && n !== null && n !== undefined) el.textContent = n + ' ' + suffix;
+  }
+  txt('st-plants', window.GARDEN.stats.plants, 'plants');
+  txt('st-beds',   window.GARDEN.stats.beds,   'beds & rooms');
+  txt('st-tasks',  window.GARDEN.stats.tasks,  'open tasks');
+
+  var strip = document.getElementById('strip');
+  if (strip) {
+    window.GARDEN.featured.forEach(function (p) {
+      var a = document.createElement('a');
+      a.className = 'specimen';
+      a.href = '/plants';
+      a.setAttribute('data-enter', '');
+      a.addEventListener('click', enter);
+      var art = p.photo
+        ? '<img src="' + p.photo + '" alt="" loading="lazy" decoding="async">'
+        : (window.SPECIES[p.species] || window.SPECIES.generic);
+      a.innerHTML = '<span class="art">' + art + '</span>' +
+                    '<span class="nm"></span><span class="loc"></span>';
+      a.querySelector('.nm').textContent = p.name;
+      a.querySelector('.loc').textContent = p.loc;
+      strip.appendChild(a);
+    });
+  }
+
+  requestAnimationFrame(function () { requestAnimationFrame(function () {
+    void document.body.offsetHeight;
+    document.body.classList.add('is-ready');
+  }); });
+  setTimeout(function () { document.body.classList.add('is-ready'); }, 1600);
+
+  /* pollen drift — canvas2d, pauses on hidden tab, off under reduced motion */
+  if (!REDUCED) (function () {
+    var cv = document.getElementById('pollen');
+    var ctx = cv.getContext('2d');
+    var motes = [], W, H, running = true;
+    var DPR = Math.min(devicePixelRatio || 1, 2);
+
+    function size() {
+      W = cv.width  = Math.max(2, cv.offsetWidth  * DPR);
+      H = cv.height = Math.max(2, cv.offsetHeight * DPR);
+    }
+    size();
+    addEventListener('resize', size);
+
+    var N = Math.min(150, Math.round(innerWidth * innerHeight / 15000));
+    for (var i = 0; i < N; i++) {
+      motes.push({ x: Math.random(), y: Math.random(), r: .6 + Math.random() * 1.8,
+                   sp: .010 + Math.random() * .022, ph: Math.random() * 6.28,
+                   sw: 6 + Math.random() * 18, a: .10 + Math.random() * .38 });
+    }
+    document.addEventListener('visibilitychange', function () {
+      running = !document.hidden;
+      if (running) { last = 0; requestAnimationFrame(tick); }
+    });
+
+    var last = 0;
+    function tick(now) {
+      if (!running) return;
+      if (!last) last = now;
+      var dt = Math.min((now - last) / 1000, .05); last = now;
+      ctx.clearRect(0, 0, W, H);
+      for (var i = 0; i < N; i++) {
+        var m = motes[i];
+        m.y -= m.sp * dt;
+        if (m.y < -.03) { m.y = 1.03; m.x = Math.random(); }
+        var x = (m.x + Math.sin(now / 2600 + m.ph) * m.sw / W) * W;
+        var tw = .65 + .35 * Math.sin(now / 900 + m.ph * 3.1);
+        ctx.beginPath();
+        ctx.arc(x, m.y * H, m.r * DPR, 0, 6.28);
+        ctx.fillStyle = 'rgba(236,244,224,' + (m.a * tw).toFixed(3) + ')';
+        ctx.fill();
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+})();
+</script>
+</body>
+</html>
