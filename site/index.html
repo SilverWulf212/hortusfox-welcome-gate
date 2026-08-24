@@ -278,7 +278,7 @@
     </dl>
 
     <div class="cta-row rise" style="--d:900ms">
-      <a class="cta" href="/auth?redirect=%2Findex.php" data-enter id="cta">
+      <a class="cta" href="/auth?redirect=%2F" data-enter id="cta">
         Enter the garden
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
       </a>
@@ -343,16 +343,14 @@ window.GARDEN = window.GARDEN || {
 
   var REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* Returning visitors skip the splash: Traefik hands us only exactly "/",
-     so /index.php still reaches the real application underneath. */
-  try {
-    if (localStorage.getItem('garden-entered')) { location.replace('/index.php'); return; }
-  } catch (e) {}
+  /* Returning visitors never reach this page: nginx serves the app at /
+     directly when the garden_entered cookie is present. */
 
   function enter(e) {
     var a = e.currentTarget;
     e.preventDefault();
-    try { localStorage.setItem('garden-entered', '1'); } catch (err) {}
+    document.cookie = 'garden_entered=1; path=/; max-age=31536000; SameSite=Lax';
+    try { localStorage.setItem('garden_entered', '1'); } catch (err) {}
     document.body.classList.add('leaving');
     setTimeout(function () { location.href = a.getAttribute('href'); }, REDUCED ? 0 : 430);
   }
