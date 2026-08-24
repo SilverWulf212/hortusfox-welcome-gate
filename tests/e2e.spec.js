@@ -97,6 +97,20 @@ test.describe('welcome gate — returning visitor', () => {
     expect(new URL(page.url()).pathname, 'must have left the splash').toBe('/auth');
   });
 
+  test('legacy hyphen cookie (pre-rename) still gets the app at /', async ({ page, context }) => {
+    await context.addCookies([{ name: 'garden-entered', value: '1', url: process.env.E2E_BASE || 'https://plants.silverwulf.org' }]);
+    await page.goto('/');
+    await page.waitForURL('**/auth**', { timeout: 8000 });
+    expect(new URL(page.url()).pathname, 'must have left the splash').toBe('/auth');
+  });
+
+  test('legacy localStorage flag self-heals: sets cookie and enters', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('garden-entered', '1'));
+    await page.goto('/');
+    await page.waitForURL('**/auth**', { timeout: 8000 });
+    expect(new URL(page.url()).pathname, 'must have left the splash').toBe('/auth');
+  });
+
   test('a logged-in visitor (PHPSESSID) gets the workspace at /, not the splash', async ({ page, context }) => {
     // Lance's 404-adjacent complaint: clicking Plants while logged into the
     // app must land in the app. The gate must treat ANY app session cookie

@@ -344,7 +344,18 @@ window.GARDEN = window.GARDEN || {
   var REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* Returning visitors never reach this page: nginx serves the app at /
-     directly when the garden_entered cookie is present. */
+     directly when the garden_entered cookie is present. Visitors from
+     before the cookie rename (or with a blocked cookie jar) self-heal
+     here: adopt the flag, set the cookie, and step aside once. */
+  try {
+    var prior = localStorage.getItem('garden_entered') || localStorage.getItem('garden-entered');
+    if (prior && document.cookie.indexOf('garden_entered=') === -1 && !sessionStorage.getItem('garden-heal')) {
+      sessionStorage.setItem('garden-heal', '1');
+      document.cookie = 'garden_entered=1; path=/; max-age=31536000; SameSite=Lax';
+      location.reload();
+      return;
+    }
+  } catch (e) {}
 
   function enter(e) {
     var a = e.currentTarget;
