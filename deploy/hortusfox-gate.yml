@@ -1,4 +1,5 @@
-# plants.silverwulf.org — welcome gate in front of HortusFox.
+# plants.silverwulf.org — welcome gate in front of HortusFox
+# (and, for signed-out visitors, in front of garden.silverwulf.org too).
 # Serves the static overlay at exactly / (and /index.html); every other path
 # falls through to the app router in hortusfox.yml untouched.
 # Rollback: `docker compose down` in /opt/hortusfox-gate, then delete this file.
@@ -6,6 +7,21 @@ http:
   routers:
     hortusfox-gate:
       rule: "Host(`plants.silverwulf.org`) && (Path(`/`) || Path(`/index.html`) || Path(`/plants.local.js`) || PathPrefix(`/assets`))"
+      entryPoints: [ websecure ]
+      priority: 300
+      service: hortusfox-gate
+      middlewares: [ crowdsec, secure-headers ]
+      tls:
+        certResolver: cloudflare
+
+    # garden.silverwulf.org: signed-out visitors get this same welcome page at
+    # / (with a "Sign in" link to the dashboard's /login). Anyone holding the
+    # dashboard's garden_session cookie skips this router and falls through to
+    # the dashboard's own router (docker label, priority 100). Only /, the
+    # data file and /assets are claimed; /login, /api, /static, /img, /sw.js
+    # and the rest stay with the dashboard.
+    garden-gate:
+      rule: "Host(`garden.silverwulf.org`) && ((Path(`/`) && !HeaderRegexp(`Cookie`, `garden_session=`)) || Path(`/plants.local.js`) || PathPrefix(`/assets/`))"
       entryPoints: [ websecure ]
       priority: 300
       service: hortusfox-gate

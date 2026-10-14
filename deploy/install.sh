@@ -41,7 +41,8 @@ check() { # name url expect_sub
 }
 check "gate /"            "http://192.168.50.241:8124/"                 "living garden"
 check "gate plants.local" "http://192.168.50.241:8124/plants.local.js"  "GARDEN"
-pc=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "http://192.168.50.241:8124/assets/photos/p1.jpg")
+photo=$(grep -o 'assets/photos/[^"]*' "$BASE/site/plants.local.js" 2>/dev/null | head -1 || true)
+pc=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "http://192.168.50.241:8124/${photo:-assets/photos/p1.jpg}")
 if [ "$pc" = "200" ]; then echo "ok   gate photo -> 200"; else echo "FAIL gate photo -> $pc"; fail=1; fi
 check "app /auth"         "http://192.168.50.241:8123/auth"
 code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "http://192.168.50.241:8123/index.php")
@@ -69,5 +70,15 @@ code3=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "https://plants.si
 echo "plants.silverwulf.org/plants -> $code3 (302 expected)"
 code4=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "https://plants.silverwulf.org/index.php")
 echo "plants.silverwulf.org/index.php -> $code4 (302 expected)"
+
+echo "== garden.silverwulf.org front page =="
+gb=$(curl -sk --max-time 10 "https://garden.silverwulf.org/")
+printf '%s' "$gb" | grep -q "living garden" && echo "ok   signed-out garden / serves the gate" || { echo "FAIL garden gate content"; fail=1; }
+gl=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 10 "https://garden.silverwulf.org/login")
+echo "garden.silverwulf.org/login -> $gl (200 expected — dashboard sign-in)"
+gc=$(curl -sk -o /dev/null -w "%{http_code} %{redirect_url}" --max-time 10 -H "Cookie: garden_session=x" "https://garden.silverwulf.org/")
+echo "garden / with a session cookie -> $gc (302 …/login expected — dashboard, not gate)"
+gh=$(curl -sk --max-time 10 "https://garden.silverwulf.org/healthz")
+[ "$gh" = "ok" ] && echo "ok   garden /healthz still the dashboard" || { echo "FAIL garden /healthz -> $gh"; fail=1; }
 
 [ "$fail" = "0" ] && echo "ALL GREEN — gate live. Rollback: $BASE/rollback.sh" || { echo "FAILURES — rolling back"; "$BASE/rollback.sh"; exit 1; }

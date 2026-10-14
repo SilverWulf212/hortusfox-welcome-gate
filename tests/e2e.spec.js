@@ -12,10 +12,11 @@ test.describe('welcome gate — first visit', () => {
 
     await expect(page).toHaveTitle(/The Garden/);
     await expect(page.locator('h1')).toContainText('the living garden');
-    await expect(page.locator('.specimen')).toHaveCount(6);
-    await expect(page.locator('#st-plants')).toHaveText(/51 plants/);
-    await expect(page.locator('#st-beds')).toHaveText(/10 beds/);
-    await expect(page.locator('#st-tasks')).toHaveText(/11 open tasks/);
+    // numbers are rebuilt nightly by deploy/bake.py, so assert shape, not values
+    expect(await page.locator('.specimen').count()).toBeGreaterThan(0);
+    await expect(page.locator('#st-plants')).toHaveText(/^[1-9]\d* plants$/);
+    await expect(page.locator('#st-beds')).toHaveText(/^[1-9]\d* beds/);
+    await expect(page.locator('#st-tasks')).toHaveText(/^\d+ open tasks$/);
 
     // dock + CTA point into the real app
     await expect(page.locator('.dock a[href="/"]:not(.dock-mark)')).toBeVisible();
@@ -139,5 +140,39 @@ test.describe('welcome gate — accessibility & mobile', () => {
     const labelHidden = await page.locator('.dock a[href="/tasks"] span:not(.glyph)')
       .evaluate(el => getComputedStyle(el).display === 'none');
     expect(labelHidden).toBeTruthy();
+  });
+});
+
+// garden.silverwulf.org: the same page fronts The Garden dashboard for
+// signed-out visitors (Traefik router garden-gate). Absolute URLs, so this
+// block runs whatever E2E_BASE is.
+const GARDEN = process.env.E2E_GARDEN || 'https://garden.silverwulf.org';
+
+test.describe('garden dashboard front page', () => {
+  test('signed out: / is the welcome page, every enter link goes to /login', async ({ page, context }) => {
+    await page.goto(GARDEN + '/');
+    expect(new URL(page.url()).pathname).toBe('/');
+    await expect(page.locator('h1')).toContainText('the living garden');
+    await expect(page.locator('#cta')).toHaveAttribute('href', '/login');
+    await expect(page.locator('#cta')).toContainText('Sign in');
+    const hrefs = await page.locator('[data-enter]').evaluateAll(as => [...new Set(as.map(a => a.getAttribute('href')))]);
+    expect(hrefs).toEqual(['/login']);
+    await page.locator('#cta').click();
+    await page.waitForURL('**/login', { timeout: 8000 });
+    // the HortusFox hand-off cookie must never be set on this host
+    expect((await context.cookies(GARDEN)).find(c => c.name === ENTERED)).toBeFalsy();
+  });
+
+  test('a garden_entered cookie never shows HortusFox here', async ({ page, context }) => {
+    await context.addCookies([{ name: ENTERED, value: '1', url: GARDEN }]);
+    await page.goto(GARDEN + '/');
+    await expect(page.locator('#cta')).toHaveAttribute('href', '/login');
+  });
+
+  test('with a session cookie, / goes to the dashboard (fake session -> its /login)', async ({ page, context }) => {
+    await context.addCookies([{ name: 'garden_session', value: 'e2e-fake', url: GARDEN }]);
+    await page.goto(GARDEN + '/');
+    await page.waitForURL('**/login', { timeout: 8000 });
+    await expect(page.locator('h1')).not.toContainText('the living garden');
   });
 });
