@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Rebuild site/plants.local.js (and its photos) from a live HortusFox.
 
-Reads three things through the HortusFox REST API with an API token:
-locations, plants and open tasks. Writes the counts the welcome page shows,
-plus a handful of recent plant photos, downscaled and stripped of every byte
-of metadata (EXIF, GPS, XMP, ICC) before they land in the public site.
+Reads locations, plants, open tasks and plant logs through the HortusFox REST
+API with an API token. Writes the counts the welcome page shows, plus a
+handful of plant photos, downscaled and stripped of every byte of metadata
+(EXIF, GPS, XMP, ICC) before they land in the public site.
+
+Which photos: plants with a soil sensor first (detected the way The Garden
+dashboard does it: a plant-log line starting "soil sensor" or "auto ha", or a
+plant attribute/tag mentioning a sensor), then the best of the rest: healthy
+health_state, a real photo, most recently photographed.
 
 Safe when HortusFox is down: everything is fetched and built in memory and
 on temp files first. Only a complete, sane build replaces the live files, so
@@ -32,6 +37,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from PIL import Image, ImageOps
@@ -41,6 +47,9 @@ IMAGE_NAME = re.compile(r"\A[A-Za-z0-9_.-]{1,120}\.(?:jpe?g|png|webp|gif)\Z")
 PHOTO_NAME = re.compile(r"\A[0-9a-f]{16}\.jpg\Z")     # what this script writes
 MAX_EDGE = 640                                       # px; the strip shows ~150px tiles
 SHRINK_GUARD = 0.5     # refuse a build that loses more than half the plants at once
+GOOD_HEALTH = "in_good_standing"                     # HortusFox's healthy state
+SENSOR_PREFIX = ("soil sensor", "auto ha")           # same as garden-dashboard standing.py
+SENSOR_WORD = re.compile(r"\bsensor\b", re.I)
 
 
 class BakeError(Exception):
@@ -82,6 +91,25 @@ class Hortus:
         except NET_ERRORS:
             raise BakeError(f"image unavailable: {name}") from None
 
+    def photo_time(self, name):
+        """When the photo file was last written (Last-Modified), or None."""
+        if not IMAGE_NAME.match(name):
+            return None
+        req = urllib.request.Request(f"{self.base}/img/{name}", method="HEAD")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                lm = r.headers.get("Last-Modified")
+            return parsedate_to_datetime(lm).timestamp() if lm else None
+        except (*NET_ERRORS, TypeError):
+            return None
+
+    def has_sensor_log(self, plant_id):
+        try:
+            log = self.get("/api/plants/log/fetch", "log", plant=plant_id, limit=300)
+        except BakeError:
+            return False                          # a missing log is not a failed build
+        return any((e.get("content") or "").lower().startswith(SENSOR_PREFIX) for e in log)
+
 
 # ---- build -----------------------------------------------------------------
 
@@ -90,7 +118,7 @@ def is_trash(loc):
 
 
 def summarize(locations, plants, open_tasks):
-    """Counts + the plants worth featuring, newest first. Pure; no I/O."""
+    """Counts + the plants that could be featured (unranked). Pure; no I/O."""
     trash = {l["id"] for l in locations if "id" in l and is_trash(l)}
     beds = [l for l in locations if "id" in l and not is_trash(l)
             and str(l.get("active", 1)) not in ("0", "False", "false")]
@@ -99,12 +127,37 @@ def summarize(locations, plants, open_tasks):
               and p.get("location") not in trash]
     with_photo = [p for p in living
                   if p.get("photo") and not str(p["photo"]).startswith("placeholder")]
-    with_photo.sort(key=lambda p: (p.get("created_at") or "", p["id"]), reverse=True)
-    featured = [{"name": (p.get("name") or "").strip() or "Unnamed plant",
+    featured = [{"id": p["id"],
+                 "name": (p.get("name") or "").strip() or "Unnamed plant",
                  "loc": names.get(p.get("location"), ""),
-                 "src": str(p["photo"])} for p in with_photo]
+                 "src": str(p["photo"]),
+                 "healthy": (p.get("health_state") or GOOD_HEALTH) == GOOD_HEALTH,
+                 "attr_sensor": any(SENSOR_WORD.search(str(p.get(k) or ""))
+                                    for k in ("tags", "sensor", "notes")),
+                 "dated": str(p.get("updated_at") or p.get("created_at") or "")}
+                for p in with_photo]
     stats = {"plants": len(living), "beds": len(beds), "tasks": len(open_tasks)}
     return stats, featured
+
+
+def _fallback_ts(dated):
+    try:
+        return datetime.fromisoformat(dated[:19]).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def rank(candidates, sensor_ids, photo_times):
+    """Sensor plants first, then healthy, then most recently photographed.
+
+    Pure. sensor_ids: plant ids with a soil-sensor log line. photo_times:
+    {plant id: unix time the photo was written}; missing -> updated/created date.
+    """
+    def key(c):
+        sensor = c["attr_sensor"] or c["id"] in sensor_ids
+        when = photo_times.get(c["id"]) or _fallback_ts(c["dated"])
+        return (sensor, c["healthy"], when, c["id"])
+    return sorted(candidates, key=key, reverse=True)
 
 
 def clean_jpeg(raw):
@@ -164,12 +217,20 @@ def bake(hortus, site, want_photos=6, force=False):
         raise BakeError(f"plant count fell from {prev} to {stats['plants']}; "
                         "keeping the last build (rerun with --force if that is real)")
 
-    # Photos: walk newest-first until we have enough that download and decode.
+    # Rank (sensor plants, then healthy, then freshest photo), then walk the
+    # ranking until we have enough photos that download and decode.
+    if want_photos > 0:
+        sensor_ids = {c["id"] for c in candidates if hortus.has_sensor_log(c["id"])}
+        photo_times = {c["id"]: hortus.photo_time(c["src"]) for c in candidates}
+        candidates = rank(candidates, sensor_ids, {k: v for k, v in photo_times.items() if v})
+    else:
+        candidates = []
     featured, photos = [], {}
     for c in candidates:
         if len(featured) >= want_photos:
             break
-        src = c.pop("src")
+        src = c["src"]
+        c = {"name": c["name"], "loc": c["loc"]}
         raw = None
         for name in dict.fromkeys([src.replace("_thumb", ""), src]):   # full size, then thumb
             try:

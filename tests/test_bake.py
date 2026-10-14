@@ -52,7 +52,12 @@ class FakeHortus:
             {"id": 5, "name": "Sundew", "location": 2, "photo": "placeholder.jpg", "history": 0, "created_at": "2026-10-07"})
         self.tasks = rows({"id": 1, "title": "Water", "done": 0}, {"id": 2, "title": "Prune", "done": 0})
         self.photo = jpeg_with_gps()
+        self.logs = {}                 # plant id -> [log rows]
+        self.modified = {}             # image name -> Last-Modified header
         self.seen_tokens = set()
+
+    def served_images(self):
+        return {"a.jpg", "b.jpg", "e.jpg", "f.jpg", "a_thumb.jpg", "b_thumb.jpg", "e_thumb.jpg", "f_thumb.jpg"}
 
     def serve(self):
         fake = self
@@ -61,6 +66,15 @@ class FakeHortus:
             def log_message(self, *a):
                 pass
 
+            def do_HEAD(self):
+                name = urllib.parse.urlparse(self.path).path[5:]
+                if not fake.up or name not in fake.served_images():
+                    self.send_response(404); self.end_headers(); return
+                self.send_response(200); self.send_header("Content-Type", "image/jpeg")
+                if name in fake.modified:
+                    self.send_header("Last-Modified", fake.modified[name])
+                self.end_headers()
+
             def do_GET(self):
                 if not fake.up:
                     self.send_response(502); self.end_headers(); return
@@ -68,14 +82,16 @@ class FakeHortus:
                 q = dict(urllib.parse.parse_qsl(u.query))
                 if u.path.startswith("/img/"):
                     name = u.path[5:]
-                    if name in ("a.jpg", "b.jpg"):
+                    if name in fake.served_images():
                         self.send_response(200); self.send_header("Content-Type", "image/jpeg")
                         self.end_headers(); self.wfile.write(fake.photo); return
                     self.send_response(404); self.end_headers(); return
                 fake.seen_tokens.add(q.get("token"))
                 body = {"/api/locations/list": {"code": 200, "list": fake.locations},
                         "/api/plants/search": {"code": 200, "list": fake.plants},
-                        "/api/tasks/fetch": {"code": 200, "data": fake.tasks}}.get(u.path)
+                        "/api/tasks/fetch": {"code": 200, "data": fake.tasks},
+                        "/api/plants/log/fetch": {"code": 200, "log": fake.logs.get(int(q.get("plant", 0)), [])},
+                        }.get(u.path)
                 if body is None or q.get("token") != TOKEN:
                     body = {"code": 403}
                 data = json.dumps(body).encode()
@@ -160,6 +176,35 @@ class BakeTest(unittest.TestCase):
         bake.bake(self.client, self.site)
         third = {p.name for p in photos.iterdir()}
         self.assertEqual(third, second - first, "then pruned")
+
+    def test_rank_sensor_then_healthy_then_freshest(self):
+        c = lambda i, **k: {"id": i, "healthy": True, "attr_sensor": False, "dated": "2026-01-01", **k}
+        cands = [c(1), c(2, healthy=False), c(3), c(4, healthy=False), c(5, attr_sensor=True, healthy=False)]
+        order = [x["id"] for x in bake.rank(cands, sensor_ids={4}, photo_times={1: 100.0, 3: 200.0})]
+        # sensors (5 by tag, 4 by log) first; then healthy by photo time (3 newer than 1); unhealthy last
+        self.assertEqual(set(order[:2]), {4, 5})
+        self.assertEqual(order[2:], [3, 1, 2])
+
+    def test_bake_features_sensor_and_healthy_plants_first(self):
+        self.fake.plants += rows(
+            {"id": 6, "name": "Loquat", "location": 1, "photo": "e_thumb.jpg", "history": 0,
+             "created_at": "2025-01-01", "health_state": "overwatered"},
+            {"id": 7, "name": "Sick fig", "location": 2, "photo": "f_thumb.jpg", "history": 0,
+             "created_at": "2026-10-10", "health_state": "pest_infestation"})
+        self.fake.logs[6] = [{"content": "Soil sensor: moisture=41% temp=70F", "created_at": "2026-10-13"}]
+        self.fake.modified = {"a_thumb.jpg": "Tue, 13 Oct 2026 10:00:00 GMT",   # Gardenia: freshest photo
+                              "b_thumb.jpg": "Mon, 01 Jun 2026 10:00:00 GMT"}
+        bake.bake(self.client, self.site, want_photos=3)
+        names = [f["name"] for f in self.read_garden()["featured"]]
+        # sensor plant first even though older and unhealthy; then healthy by photo date;
+        # the unhealthy newest plant is cut by the limit of 3
+        self.assertEqual(names, ["Loquat", "Gardenia", "Satsuma"])
+
+    def test_zero_photos_means_counts_only(self):
+        bake.bake(self.client, self.site, want_photos=0)
+        g = self.read_garden()
+        self.assertEqual(g["featured"], [])
+        self.assertEqual(g["stats"]["plants"], 3)
 
     @staticmethod
     def _other_jpeg():

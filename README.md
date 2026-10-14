@@ -40,8 +40,12 @@ see the splash once more.
 
 `deploy/bake.py` regenerates `site/plants.local.js` from the HortusFox REST
 API: living plants (not archived, not in Trash), growing spaces (locations
-minus Trash and inactive ones), open tasks, and the newest few plants that
-have a photo. Each photo is downscaled to 640 px and re-encoded from bare
+minus Trash and inactive ones), open tasks, and a few plant photos
+(`GATE_PHOTOS`, default 6). Photo order: plants with a soil sensor first
+(a plant-log line starting "soil sensor" / "auto ha", as The Garden dashboard
+detects it, or a tag/attribute mentioning a sensor), then healthy plants
+(`health_state` in good standing), most recently photographed first (the
+photo's Last-Modified, else the plant's updated/created date). Each photo is downscaled to 640 px and re-encoded from bare
 pixels, so no EXIF, GPS, XMP or ICC data reaches the public site. Photos are
 content-named (`<hash>.jpg`) so week-long caches never show a stale picture.
 
