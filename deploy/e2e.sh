@@ -13,6 +13,7 @@ docker pull -q "$IMAGE" >/dev/null
 cd "$BASE"
 docker run --rm --network host \
   --add-host "plants.silverwulf.org:192.168.50.241" \
+  --add-host "garden.silverwulf.org:192.168.50.241" \
   -v "$BASE":/work -w /work -u root -e HOME=/tmp \
   --entrypoint /bin/bash "$IMAGE" -c "
     npm i --no-save --no-audit --no-fund "@playwright/test@$(echo "${IMAGE##*:v}" | cut -d- -f1)" >/dev/null 2>&1

@@ -313,6 +313,7 @@ window.SPECIES = {
  * file (NOT in git). Shape:
  *
  *   window.GARDEN = {
+ *     baked: "2026-10-15 04:15 CDT",          // optional, informational
  *     stats: { plants: 51, beds: 10, tasks: 11 },
  *     featured: [
  *       { name: "Gardenia", loc: "Front street bed", species: "gardenia" },
@@ -323,6 +324,7 @@ window.SPECIES = {
  *
  * Each featured entry uses `photo` (a real image) or `species` (line art).
  * Without plants.local.js the page renders its example placeholders.
+ * deploy/bake.py regenerates it nightly from the live HortusFox API.
  */
 window.GARDEN = window.GARDEN || {
   stats: { plants: null, beds: null, tasks: null },
@@ -335,6 +337,16 @@ window.GARDEN = window.GARDEN || {
     { name: "Sundew",     loc: "Office sill",  species: "sundew" }
   ]
 };
+
+/*
+ * GATE_HOSTS — other apps this same page can front. On a listed host every
+ * "enter" link goes to that app's own sign-in, the CTA is relabelled, and the
+ * HortusFox hand-off cookie is never set. Unlisted hosts (plants.…) behave
+ * exactly as before: enter = HortusFox /auth.
+ */
+window.GATE_HOSTS = window.GATE_HOSTS || {
+  "garden.silverwulf.org": { enter: "/login", label: "Sign in" }
+};
 </script>
 <script src="plants.local.js"></script>
 <script>
@@ -342,12 +354,21 @@ window.GARDEN = window.GARDEN || {
   'use strict';
 
   var REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var HOST = window.GATE_HOSTS[location.hostname] || null;
+
+  if (HOST) {
+    document.querySelectorAll('[data-enter]').forEach(function (a) {
+      a.setAttribute('href', HOST.enter);
+    });
+    var label = document.getElementById('cta');
+    if (label && HOST.label) label.firstChild.nodeValue = '\n        ' + HOST.label + '\n        ';
+  }
 
   /* Returning visitors never reach this page: nginx serves the app at /
      directly when the garden_entered cookie is present. Visitors from
      before the cookie rename (or with a blocked cookie jar) self-heal
      here: adopt the flag, set the cookie, and step aside once. */
-  try {
+  if (!HOST) try {
     var prior = localStorage.getItem('garden_entered') || localStorage.getItem('garden-entered');
     if (prior && document.cookie.indexOf('garden_entered=') === -1 && !sessionStorage.getItem('garden-heal')) {
       sessionStorage.setItem('garden-heal', '1');
@@ -360,8 +381,10 @@ window.GARDEN = window.GARDEN || {
   function enter(e) {
     var a = e.currentTarget;
     e.preventDefault();
-    document.cookie = 'garden_entered=1; path=/; max-age=31536000; SameSite=Lax';
-    try { localStorage.setItem('garden_entered', '1'); } catch (err) {}
+    if (!HOST) {
+      document.cookie = 'garden_entered=1; path=/; max-age=31536000; SameSite=Lax';
+      try { localStorage.setItem('garden_entered', '1'); } catch (err) {}
+    }
     document.body.classList.add('leaving');
     setTimeout(function () { location.href = a.getAttribute('href'); }, REDUCED ? 0 : 430);
   }
@@ -415,11 +438,13 @@ window.GARDEN = window.GARDEN || {
   txt('st-tasks',  window.GARDEN.stats.tasks,  'open tasks');
 
   var strip = document.getElementById('strip');
+  var featured = window.GARDEN.featured || [];
+  if (strip && !featured.length) strip.parentNode.hidden = true;   // e.g. GATE_PHOTOS=0
   if (strip) {
-    window.GARDEN.featured.forEach(function (p) {
+    featured.forEach(function (p) {
       var a = document.createElement('a');
       a.className = 'specimen';
-      a.href = '/';
+      a.href = HOST ? HOST.enter : '/';
       a.setAttribute('data-enter', '');
       a.addEventListener('click', enter);
       var art = p.photo

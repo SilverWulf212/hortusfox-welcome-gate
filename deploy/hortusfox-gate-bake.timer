@@ -1,0 +1,13 @@
+# Nightly at ~04:15, after the 03:30 HortusFox backup. Persistent=true runs a
+# missed bake at next boot. Cron equivalent (root crontab):
+#   15 4 * * * /opt/hortusfox-gate/deploy/bake.sh >>/var/log/hortusfox-gate-bake.log 2>&1
+[Unit]
+Description=Nightly HortusFox welcome gate rebuild
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

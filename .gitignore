@@ -5,3 +5,9 @@ local-bake/
 node_modules/
 test-results/
 playwright-report/
+# bake: never commit live data, photos, or the HortusFox token
+site/assets/photos/
+site/.bake-*
+*.token
+.bake.env
+__pycache__/
